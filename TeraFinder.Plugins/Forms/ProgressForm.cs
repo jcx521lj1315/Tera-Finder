@@ -10,25 +10,39 @@ public partial class ProgressForm : Form
     private Dictionary<string, string> Strings = null!;
     private ConnectionForm? Connection = null;
 
-    public ProgressForm(SAV9SV sav, string language, ConnectionForm? connection)
+    public ProgressForm(TeraPlugin container)
     {
         InitializeComponent();
         GenerateDictionary();
-        TranslateDictionary(language);
+        TranslateDictionary(container.Language);
         TranslateCmbProgress();
-        this.TranslateInterface(language);
+        this.TranslateInterface(container.Language);
 
-        SAV = sav;
+        Connection = container.Connection;
+        SAV = container.SAV;
         Raids = [];
 
-        cmbProgress.SelectedIndex = (int)SavUtil.GetProgress(sav);
-        var raid7 = sav.RaidSevenStar.GetAllRaids();
+        cmbProgress.SelectedIndex = (int)SavUtil.GetProgress(SAV);
+        var raid7 = SAV.RaidSevenStar.GetAllRaids();
         foreach (var raid in raid7)
         {
             if (raid.Identifier > 0)
             {
                 var name = $"{raid.Identifier}";
-                cmbMightyIndex.Items.Add(name);
+                var key = Convert.ToUInt32(name[..^2], 10);
+
+                if (container.AllMighty.TryGetValue(key, out var mighties))
+                {
+                    var enc = mighties.FirstOrDefault(e => e.Identifier == raid.Identifier);
+                    if (enc is not null) name = enc.Name;
+                }
+                else if (container.AllDist.TryGetValue(key, out var dists))
+                {
+                    var enc = dists.FirstOrDefault(e => e.Identifier == raid.Identifier);
+                    if (enc is not null) name = enc.Name;
+                }
+
+                    cmbMightyIndex.Items.Add(name);
                 Raids.Add(raid);
             }
         }
@@ -37,7 +51,6 @@ public partial class ProgressForm : Form
             grpRaidMighty.Enabled = false;
         else
             cmbMightyIndex.SelectedIndex = 0;
-        Connection = connection;
     }
 
     private void GenerateDictionary()
