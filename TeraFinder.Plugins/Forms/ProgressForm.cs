@@ -10,6 +10,11 @@ public partial class ProgressForm : Form
     private Dictionary<string, string> Strings = null!;
     private ConnectionForm? Connection = null;
 
+    private string[] NameList = null!;
+    private string[] FormList = null!;
+    private string[] TypeList = null!;
+    private string[] GenderListAscii = null!;
+
     public ProgressForm(TeraPlugin container)
     {
         InitializeComponent();
@@ -21,6 +26,11 @@ public partial class ProgressForm : Form
         Connection = container.Connection;
         SAV = container.SAV;
         Raids = [];
+
+        NameList = GameInfo.GetStrings(container.Language).specieslist;
+        FormList = GameInfo.GetStrings(container.Language).forms;
+        TypeList = GameInfo.GetStrings(container.Language).types;
+        GenderListAscii = [.. GameInfo.GenderSymbolASCII];
 
         cmbProgress.SelectedIndex = (int)SavUtil.GetProgress(SAV);
         var raid7 = SAV.RaidSevenStar.GetAllRaids();
@@ -34,15 +44,17 @@ public partial class ProgressForm : Form
                 if (container.AllMighty.TryGetValue(key, out var mighties))
                 {
                     var enc = mighties.FirstOrDefault(e => e.Identifier == raid.Identifier);
-                    if (enc is not null) name = enc.Name;
+                    if (enc is not null)
+                        name = GetEncounterName(enc);
                 }
                 else if (container.AllDist.TryGetValue(key, out var dists))
                 {
                     var enc = dists.FirstOrDefault(e => e.Identifier == raid.Identifier);
-                    if (enc is not null) name = enc.Name;
+                    if (enc is not null)
+                        name = GetEncounterName(enc);
                 }
 
-                    cmbMightyIndex.Items.Add(name);
+                cmbMightyIndex.Items.Add(name);
                 Raids.Add(raid);
             }
         }
@@ -51,6 +63,22 @@ public partial class ProgressForm : Form
             grpRaidMighty.Enabled = false;
         else
             cmbMightyIndex.SelectedIndex = 0;
+    }
+
+    private string GetEncounterName(EncounterEventTF9 enc)
+    {
+        var forms = FormConverter.GetFormList(enc.Species, TypeList, FormList, GenderListAscii, EntityContext.Gen9);
+        var speciesName = $"{NameList[enc.Species]}{(forms.Length > 1 && enc.Form != 0 ? $"-{forms[enc.Form]}" : "")}";
+
+        var encName = enc switch
+        {
+            { IsMighty: true, Shiny: Shiny.Always or Shiny.AlwaysSquare or Shiny.AlwaysStar } => Strings["ProgressForm.SpeciesMighty"].Replace("{species}", Strings["ProgressForm.SpeciesShiny"]),
+            { IsMighty: true } => Strings["ProgressForm.SpeciesMighty"],
+            { Shiny: Shiny.Always or Shiny.AlwaysSquare or Shiny.AlwaysStar } => Strings["ProgressForm.SpeciesShiny"],
+            _ => "{species}"
+        };
+
+        return encName.Replace("{species}", speciesName);
     }
 
     private void GenerateDictionary()
@@ -66,6 +94,8 @@ public partial class ProgressForm : Form
             { "SAVInvalid", "Not a valid save file." },
             { "MsgSuccess", "Done." },
             { "DisconnectionSuccess", "Device disconnected." },
+            { "ProgressForm.SpeciesMighty", "Mighty {species}" },
+            { "ProgressForm.SpeciesShiny", "Shiny {species}" }
         };
     }
 
@@ -83,6 +113,7 @@ public partial class ProgressForm : Form
 
     private async void btnApplyProgress_Click(object sender, EventArgs e)
     {
+        var failed = false;
         if (SAV.Accessor is not null)
         {
             var progress = (GameProgress)cmbProgress.SelectedIndex;
@@ -92,12 +123,12 @@ public partial class ProgressForm : Form
                 try
                 {
                     await WriteProgressLive(progress);
-                    MessageBox.Show(Strings["MsgSuccess"]);
                 }
                 catch
                 {
                     if (Connection is not null)
                     {
+                        failed = true;
                         Connection.Disconnect();
                         MessageBox.Show(Strings["DisconnectionSuccess"]);
                         Connection = null;
@@ -107,9 +138,14 @@ public partial class ProgressForm : Form
         }
         else
         {
+
+            failed = true;
             MessageBox.Show(Strings["SAVInvalid"]);
             Close();
         }
+
+        if (!failed)
+            MessageBox.Show(Strings["MsgSuccess"]);
     }
 
     private async Task WriteProgressLive(GameProgress progress)
@@ -282,6 +318,7 @@ public partial class ProgressForm : Form
 
     private async void btnApplyRaid7_Click(object sender, EventArgs e)
     {
+        var failed = false;
         var raid = Raids.ElementAt(cmbMightyIndex.SelectedIndex);
         if (chkCaptured.Checked)
             raid.Captured = true;
@@ -298,6 +335,7 @@ public partial class ProgressForm : Form
             {
                 if (Connection is not null)
                 {
+                    failed = true;
                     Connection.Disconnect();
                     MessageBox.Show(Strings["DisconnectionSuccess"]);
                     Connection = null;
@@ -305,7 +343,8 @@ public partial class ProgressForm : Form
             }
         }
 
-        MessageBox.Show(Strings["MsgSuccess"]);
+        if (!failed)
+            MessageBox.Show(Strings["MsgSuccess"]);
     }
 
     private void cmbMightyIndex_IndexChanged(object sender, EventArgs e)
