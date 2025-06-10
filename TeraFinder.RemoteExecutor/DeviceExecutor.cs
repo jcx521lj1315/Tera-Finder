@@ -22,7 +22,7 @@ public class DeviceState : BotState<RoutineType, SwitchConnectionConfig>
 
 public class DeviceExecutor(DeviceState cfg) : SwitchRoutineExecutor<DeviceState>(cfg)
 {
-    public const decimal BotbaseVersion = 2.3m;
+    public const decimal BotbaseVersion = 2.4m;
 
     //Game Infos
     private const string VersionNumber = "4.0.0";
