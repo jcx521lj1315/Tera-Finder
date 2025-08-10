@@ -18,6 +18,7 @@ public static class GridUtil
             { "GridUtil.Report", "" },
             { "GridUtil.RowsExceeded", "" },
             { "GridUtil.MismatchGroupID", "" },
+            { "GridUtil.NoCatch", "" },
         }.TranslateInnerStrings(language);
     }
 
@@ -160,43 +161,52 @@ public static class GridUtil
                     var encounters = f.Editor.GetCurrentEncounters(content, map);
                     if (EncounterRaidTF9.TryGenerateTeraDetails(seed, encounters, version, progress, eventProgress, content, map, id32, groupid, out var enc, out var result))
                     {
-                        var checkActiveHandler = ParseSettings.Settings.Handler.CheckActiveHandler;
-                        ParseSettings.Settings.Handler.CheckActiveHandler = false;
-                        if (!enc.GeneratePK9(result.Value, id32, version, f.Editor.SAV.OT, f.Editor.SAV.Language, f.Editor.SAV.Gender, out var pk9, out var la))
+                        if (enc.IsCatchable)
                         {
-                            var la_encounter = la.Results.Where(l => l.Identifier is CheckIdentifier.Encounter).FirstOrDefault();
-                            if (content is RaidContent.Event or RaidContent.Event_Mighty)
-                                MessageBox.Show($"{strings["GridUtil.ErrorParsing"]}\n{strings["GridUtil.MissingData"]} [{enc.Identifier}].\n{strings["GridUtil.CheckWiki"]}");
-                            else
-                                MessageBox.Show($"{strings["GridUtil.ErrorParsing"]} {strings["GridUtil.Report"]}\n{la.Report()}");
-                            ParseSettings.Settings.Handler.CheckActiveHandler = checkActiveHandler;
-                            return;
-                        }
+                            var settings = LegalityUtil.StoreLegalitySettings();
+                            LegalityUtil.SetDefaultlegalitySettings();
 
-                        var sfd = new SaveFileDialog
-                        {
-                            Filter = "PK9 (*.pk9)|*.pk9",
-                            FileName = $"{pk9!.FileName}",
-                        };
-
-                        if (sfd.ShowDialog() is DialogResult.OK)
-                        {
-                            if (File.Exists(sfd.FileName))
+                            if (!enc.GeneratePK9(result.Value, id32, version, f.Editor.SAV.OT, f.Editor.SAV.Language, f.Editor.SAV.Gender, out var pk9, out var la))
                             {
-                                try
-                                {
-                                    File.Delete(sfd.FileName);
-                                }
-                                catch (IOException ex)
-                                {
-                                    MessageBox.Show(ex.Message);
-                                }
-                            }
-                            File.WriteAllBytes(sfd.FileName, pk9.Data);
-                            MessageBox.Show($"{strings["GridUtil.Exported"]} {sfd.FileName}");
-                        }
+                                var la_encounter = la.Results.Where(l => l.Identifier is CheckIdentifier.Encounter).FirstOrDefault();
+                                if (content is RaidContent.Event or RaidContent.Event_Mighty)
+                                    MessageBox.Show($"{strings["GridUtil.ErrorParsing"]}\n{strings["GridUtil.MissingData"]} [{enc.Identifier}].\n{strings["GridUtil.CheckWiki"]}");
+                                else
+                                    MessageBox.Show($"{strings["GridUtil.ErrorParsing"]} {strings["GridUtil.Report"]}\n{la.Report()}");
 
-                        ParseSettings.Settings.Handler.CheckActiveHandler = checkActiveHandler;
+                                LegalityUtil.SetLegalitySettings(settings);
+                                return;
+                            }
+
+                            var sfd = new SaveFileDialog
+                            {
+                                Filter = "PK9 (*.pk9)|*.pk9",
+                                FileName = $"{pk9!.FileName}",
+                            };
+
+                            if (sfd.ShowDialog() is DialogResult.OK)
+                            {
+                                if (File.Exists(sfd.FileName))
+                                {
+                                    try
+                                    {
+                                        File.Delete(sfd.FileName);
+                                    }
+                                    catch (IOException ex)
+                                    {
+                                        MessageBox.Show(ex.Message);
+                                    }
+                                }
+                                File.WriteAllBytes(sfd.FileName, pk9.Data);
+                                MessageBox.Show($"{strings["GridUtil.Exported"]} {sfd.FileName}");
+                            }
+
+                            LegalityUtil.SetLegalitySettings(settings);
+                        }
+                        else
+                        {
+                            MessageBox.Show($"{strings["GridUtil.NoCatch"]}");
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -375,25 +385,33 @@ public static class GridUtil
                     var id32 = TidUtil.GetID32(Convert.ToUInt32(f.txtTID.Text, 10), Convert.ToUInt32(f.txtSID.Text, 10));
 
                     var encounters = f.Editor.GetCurrentEncounters(content, map);
-                    var checkActiveHandler = ParseSettings.Settings.Handler.CheckActiveHandler;
-                    ParseSettings.Settings.Handler.CheckActiveHandler = false;
+
+                    var settings = LegalityUtil.StoreLegalitySettings();
+                    LegalityUtil.SetDefaultlegalitySettings();
 
                     if (EncounterRaidTF9.TryGenerateTeraDetails(seed, encounters, version, progress, eventProgress, content, map, id32, groupid, out var enc, out var result))
                     {
-                        if (!enc.GeneratePK9(result.Value, id32, version, f.Editor.SAV.OT, f.Editor.SAV.Language, f.Editor.SAV.Gender, out var pk9, out var la))
+                        if (enc.IsCatchable)
                         {
-                            var la_encounter = la.Results.Where(l => l.Identifier is CheckIdentifier.Encounter).FirstOrDefault();
-                            if (content is RaidContent.Event or RaidContent.Event_Mighty)
-                                MessageBox.Show($"{strings["GridUtil.ErrorParsing"]}\n{strings["GridUtil.MissingData"]} [{enc.Identifier}].\n{strings["GridUtil.CheckWiki"]}");
-                            else
-                                MessageBox.Show($"{strings["GridUtil.ErrorParsing"]} {strings["GridUtil.Report"]}\n{la.Report()}");
+                            if (!enc.GeneratePK9(result.Value, id32, version, f.Editor.SAV.OT, f.Editor.SAV.Language, f.Editor.SAV.Gender, out var pk9, out var la))
+                            {
+                                var la_encounter = la.Results.Where(l => l.Identifier is CheckIdentifier.Encounter).FirstOrDefault();
+                                if (content is RaidContent.Event or RaidContent.Event_Mighty)
+                                    MessageBox.Show($"{strings["GridUtil.ErrorParsing"]}\n{strings["GridUtil.MissingData"]} [{enc.Identifier}].\n{strings["GridUtil.CheckWiki"]}");
+                                else
+                                    MessageBox.Show($"{strings["GridUtil.ErrorParsing"]} {strings["GridUtil.Report"]}\n{la.Report()}");
 
-                            ParseSettings.Settings.Handler.CheckActiveHandler = checkActiveHandler;
-                            return;
+                                LegalityUtil.SetLegalitySettings(settings);
+                                return;
+                            }
+
+                            LegalityUtil.SetLegalitySettings(settings);
+                            f.Editor.PKMEditor!.PopulateFields(pk9!, true);
                         }
-
-                        ParseSettings.Settings.Handler.CheckActiveHandler = checkActiveHandler;
-                        f.Editor.PKMEditor!.PopulateFields(pk9!, true);
+                        else
+                        {
+                            MessageBox.Show($"{strings["GridUtil.NoCatch"]}");
+                        }
                     }
                 }
                 catch (Exception ex)
